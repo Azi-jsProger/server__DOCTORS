@@ -6,34 +6,31 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 8888;
 
-// Middleware
 app.use(bodyParser.json());
 app.use(cors());
 
-// MongoDB connection
 mongoose.connect('mongodb://localhost:27017/medix', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });
 
-// Check connection
 mongoose.connection.once('open', () => {
     console.log('Connected to MongoDB');
 });
 
-// User Schema
 const UserSchema = new mongoose.Schema({
     username: String,
     password: String,
     speciality: String,
-    login: String
+    login: String,
+    role: { type: String, default: 'user' }
 });
+
 
 const User = mongoose.model('User', UserSchema);
 
-// Register endpoint
 app.post('/register', async (req, res) => {
-    const { username, password, login, speciality } = req.body;
+    const { username, password, login, speciality, role } = req.body;
 
     try {
         const existingUser = await User.findOne({ login });
@@ -41,7 +38,7 @@ app.post('/register', async (req, res) => {
             return res.status(400).json('User already exists');
         }
 
-        const newUser = new User({ username, password, login, speciality });
+        const newUser = new User({ username, password, login, speciality, role });
         await newUser.save();
         res.status(201).json({ message: 'User registered successfully', _id: newUser._id });
     } catch (error) {
@@ -50,28 +47,22 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Login endpoint
 app.post('/login', async (req, res) => {
     const { password, login } = req.body;
 
     try {
         const user = await User.findOne({ login });
-        if (!user) {
+        if (!user || user.password !== password) {
             return res.status(400).json('Invalid login or password');
         }
 
-        if (user.password !== password) {
-            return res.status(400).json('Invalid login or password');
-        }
-
-        res.status(200).json({ _id: user._id, message: 'Login successful' });
+        res.status(200).json({ _id: user._id, role: user.role, message: 'Login successful' });
     } catch (error) {
         console.error('Error logging in:', error);
         res.status(500).json('Internal server error');
     }
 });
 
-// Profile endpoint
 app.get('/profile/:id', async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
@@ -84,6 +75,29 @@ app.get('/profile/:id', async (req, res) => {
         res.status(500).json('Error retrieving user data');
     }
 });
+
+app.get('/users', async (req, res) => {
+    try {
+        const users = await User.find();
+        res.json(users);
+    } catch (error) {
+        console.error('Error retrieving users:', error);
+        res.status(500).json('Error retrieving users');
+    }
+});
+
+function isAdmin(req, res, next) {
+    if (req.user && req.user.role === 'admin') {
+        return next(); // Пропускаем к маршруту
+    } else {
+        res.status(403).send('Доступ запрещен'); // Возвращаем ошибку 403, если роль не 'admin'
+    }
+}
+
+app.get('/admin', isAdmin, (req, res) => {
+    res.send('Добро пожаловать в админку!');
+});
+
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
