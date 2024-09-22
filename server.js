@@ -3,13 +3,17 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
+// Подключаем dotenv для работы с переменными окружения
+require('dotenv').config();
+
 const app = express();
 const port = process.env.PORT || 8888;
 
 app.use(bodyParser.json());
 app.use(cors());
 
-mongoose.connect('mongodb://localhost:27017/medix', {
+// Подключение к MongoDB через переменную окружения MONGO_URL
+mongoose.connect(process.env.MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 });
@@ -18,6 +22,7 @@ mongoose.connection.once('open', () => {
     console.log('Connected to MongoDB');
 });
 
+// Схема пользователя
 const UserSchema = new mongoose.Schema({
     username: String,
     password: String,
@@ -26,11 +31,11 @@ const UserSchema = new mongoose.Schema({
     role: { type: String, default: 'user' }
 });
 
-
 const User = mongoose.model('User', UserSchema);
 
+// Маршрут для регистрации
 app.post('/register', async (req, res) => {
-    const { username, password, login, speciality, role } = req.body;
+    const { username, password, login, speciality } = req.body;
 
     try {
         const existingUser = await User.findOne({ login });
@@ -38,7 +43,7 @@ app.post('/register', async (req, res) => {
             return res.status(400).json('User already exists');
         }
 
-        const newUser = new User({ username, password, login, speciality, role });
+        const newUser = new User({ username, password, login, speciality });
         await newUser.save();
         res.status(201).json({ message: 'User registered successfully', _id: newUser._id });
     } catch (error) {
@@ -47,6 +52,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
+// Маршрут для логина
 app.post('/login', async (req, res) => {
     const { password, login } = req.body;
 
@@ -63,6 +69,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// Получение профиля пользователя
 app.get('/profile/:id', async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
@@ -76,6 +83,7 @@ app.get('/profile/:id', async (req, res) => {
     }
 });
 
+// Получение всех пользователей
 app.get('/users', async (req, res) => {
     try {
         const users = await User.find();
@@ -86,19 +94,39 @@ app.get('/users', async (req, res) => {
     }
 });
 
+// Проверка, является ли пользователь администратором
 function isAdmin(req, res, next) {
     if (req.user && req.user.role === 'admin') {
-        return next(); // Пропускаем к маршруту
+        return next();
     } else {
-        res.status(403).send('Доступ запрещен'); // Возвращаем ошибку 403, если роль не 'admin'
+        res.status(403).send('Доступ запрещен');
     }
 }
 
+// Маршрут для админов
 app.get('/admin', isAdmin, (req, res) => {
     res.send('Добро пожаловать в админку!');
 });
 
+// Обновление статуса пользователя
+app.post('/update-status', async (req, res) => {
+    const { userId, isOnline } = req.body;
 
+    try {
+        const user = await User.findByIdAndUpdate(userId, { isOnline }, { new: true });
+
+        if (!user) {
+            return res.status(404).json('User not found');
+        }
+
+        res.json({ message: 'Status updated successfully', user });
+    } catch (error) {
+        console.error('Error updating status:', error);
+        res.status(500).json('Failed to update status');
+    }
+});
+
+// Запуск сервера
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
