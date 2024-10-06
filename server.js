@@ -3,16 +3,13 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
-// Подключаем dotenv для работы с переменными окружения
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 8888;
-
 app.use(bodyParser.json());
 app.use(cors());
 
-// Подключение к MongoDB через переменную окружения MONGO_URL
 mongoose.connect(process.env.MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true
@@ -22,7 +19,6 @@ mongoose.connection.once('open', () => {
     console.log('Connected to MongoDB');
 });
 
-// Схема пользователя
 const UserSchema = new mongoose.Schema({
     username: String,
     password: String,
@@ -33,7 +29,6 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
-// Маршрут для регистрации
 app.post('/register', async (req, res) => {
     const { username, password, login, speciality } = req.body;
 
@@ -52,7 +47,6 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Маршрут для логина
 app.post('/login', async (req, res) => {
     const { password, login } = req.body;
 
@@ -69,7 +63,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Получение профиля пользователя
 app.get('/profile/:id', async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
@@ -83,7 +76,6 @@ app.get('/profile/:id', async (req, res) => {
     }
 });
 
-// Получение всех пользователей
 app.get('/users', async (req, res) => {
     try {
         const users = await User.find();
@@ -94,7 +86,6 @@ app.get('/users', async (req, res) => {
     }
 });
 
-// Проверка, является ли пользователь администратором
 function isAdmin(req, res, next) {
     if (req.user && req.user.role === 'admin') {
         return next();
@@ -103,17 +94,15 @@ function isAdmin(req, res, next) {
     }
 }
 
-// Маршрут для админов
 app.get('/admin', isAdmin, (req, res) => {
     res.send('Добро пожаловать в админку!');
 });
 
-// Обновление статуса пользователя
 app.post('/update-status', async (req, res) => {
     const { userId, isOnline } = req.body;
 
     try {
-        const user = await User.findByIdAndUpdate(userId, { isOnline }, { new: true });
+        const user = await User.findByIdAndUpdate(userId, { isOnline }, { new: false});
 
         if (!user) {
             return res.status(404).json('User not found');
@@ -126,7 +115,6 @@ app.post('/update-status', async (req, res) => {
     }
 });
 
-// Запуск сервера
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
