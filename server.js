@@ -12,7 +12,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Настройка CORS
 const corsOptions = {
-    origin: ['http://localhost:3000', 'https://my-project-4fcfdlrgd-azi-progerjs-projects.vercel.app'],
+    origin: [
+        'http://localhost:3000',
+        'https://my-project-4fcfdlrgd-azi-progerjs-projects.vercel.app',
+        'https://server-node-camet3six-azi-progerjs-projects.vercel.app',
+        'https://server-node-js-azi-jsproger-azi-progerjs-projects.vercel.app'
+    ],
     credentials: true,
     optionsSuccessStatus: 200
 };
@@ -36,7 +41,8 @@ const UserSchema = new mongoose.Schema({
     password: String,
     speciality: String,
     login: String,
-    role: { type: String, default: 'user' }
+    role: { type: String, default: 'user' },
+    isOnline: { type: Boolean, default: false }
 });
 
 const User = mongoose.model('User', UserSchema);
@@ -63,6 +69,7 @@ app.post('/register', async (req, res) => {
     }
 });
 
+// Вход пользователя
 app.post('/login', async (req, res) => {
     const { password, login } = req.body;
 
@@ -90,8 +97,6 @@ app.post('/login', async (req, res) => {
         res.status(500).json('Internal server error');
     }
 });
-
-
 
 // Middleware для проверки токена
 function authenticateToken(req, res, next) {
