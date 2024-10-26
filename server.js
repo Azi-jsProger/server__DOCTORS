@@ -2,23 +2,35 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 8888;
-app.use(bodyParser.json());
-app.use(cors());
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// Настройка CORS
+const corsOptions = {
+    origin: ['http://localhost:3000', 'https://my-project-4fcfdlrgd-azi-progerjs-projects.vercel.app'],
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+app.use(bodyParser.json());
+
+// Подключение к MongoDB
 mongoose.connect(process.env.MONGO_URL, {
     useNewUrlParser: true,
     useUnifiedTopology: true
-});
-
-mongoose.connection.once('open', () => {
+}).then(() => {
     console.log('Connected to MongoDB');
+}).catch((error) => {
+    console.error('Error connecting to MongoDB:', error);
 });
 
+// Модель пользователя
 const UserSchema = new mongoose.Schema({
     username: String,
     password: String,
@@ -29,6 +41,7 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', UserSchema);
 
+// Регистрация пользователя
 app.post('/register', async (req, res) => {
     const { username, password, login, speciality } = req.body;
 
@@ -38,7 +51,10 @@ app.post('/register', async (req, res) => {
             return res.status(400).json('User already exists');
         }
 
-        const newUser = new User({ username, password, login, speciality });
+        // Хешируем пароль
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newUser = new User({ username, password: hashedPassword, login, speciality });
         await newUser.save();
         res.status(201).json({ message: 'User registered successfully', _id: newUser._id });
     } catch (error) {
@@ -51,19 +67,50 @@ app.post('/login', async (req, res) => {
     const { password, login } = req.body;
 
     try {
+        // Ищем пользователя по логину
         const user = await User.findOne({ login });
-        if (!user || user.password !== password) {
+        if (!user) {
+            console.log('User not found');
             return res.status(400).json('Invalid login or password');
         }
 
-        res.status(200).json({ _id: user._id, role: user.role, message: 'Login successful' });
+        // Проверяем пароль
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            console.log('Password mismatch');
+            return res.status(400).json('Invalid login or password');
+        }
+
+        // Создаем токен
+        const token = jwt.sign({ userId: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1h' });
+
+        res.status(200).json({ token, role: user.role, message: 'Login successful' });
     } catch (error) {
         console.error('Error logging in:', error);
         res.status(500).json('Internal server error');
     }
 });
 
-app.get('/profile/:id', async (req, res) => {
+
+
+// Middleware для проверки токена
+function authenticateToken(req, res, next) {
+    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
+    if (!token) {
+        return res.status(401).json('Access denied');
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json('Invalid token');
+        }
+        req.user = user;
+        next();
+    });
+}
+
+// Получение профиля пользователя
+app.get('/profile/:id', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
@@ -76,7 +123,8 @@ app.get('/profile/:id', async (req, res) => {
     }
 });
 
-app.get('/users', async (req, res) => {
+// Список всех пользователей
+app.get('/users', authenticateToken, async (req, res) => {
     try {
         const users = await User.find();
         res.json(users);
@@ -86,28 +134,15 @@ app.get('/users', async (req, res) => {
     }
 });
 
-function isAdmin(req, res, next) {
-    if (req.user && req.user.role === 'admin') {
-        return next();
-    } else {
-        res.status(403).send('Доступ запрещен');
-    }
-}
-
-app.get('/admin', isAdmin, (req, res) => {
-    res.send('Добро пожаловать в админку!');
-});
-
-app.post('/update-status', async (req, res) => {
+// Маршрут для обновления статуса пользователя
+app.post('/update-status', authenticateToken, async (req, res) => {
     const { userId, isOnline } = req.body;
 
     try {
-        const user = await User.findByIdAndUpdate(userId, { isOnline }, { new: false});
-
+        const user = await User.findByIdAndUpdate(userId, { isOnline }, { new: true });
         if (!user) {
             return res.status(404).json('User not found');
         }
-
         res.json({ message: 'Status updated successfully', user });
     } catch (error) {
         console.error('Error updating status:', error);
@@ -115,6 +150,9 @@ app.post('/update-status', async (req, res) => {
     }
 });
 
+// Запуск сервера
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
+
+module.exports = app;
