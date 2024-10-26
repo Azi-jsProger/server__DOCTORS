@@ -14,10 +14,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const corsOptions = {
     origin: [
         'http://localhost:3000',
-        'https://server-node-js-gray.vercel.app',
-        'https://server-node-kj942lisb-azi-progerjs-projects.vercel.app',
-        'https://server-node-js-git-master-azi-progerjs-projects.vercel.app/?vercelToolbarCode=wBuUgMAEGg_vVBg',
-        'https://server-node-kj942lisb-azi-progerjs-projects.vercel.app/?vercelToolbarCode=XznB4uMeV8kY-TP'
+        'https://server-node-gthmlk84y-azi-progerjs-projects.vercel.app',
+        'https://server-node-js-nu.vercel.app',
+        'https://server-node-js-git-master-azi-progerjs-projects.vercel.app',
     ],
     credentials: true,
     optionsSuccessStatus: 200
