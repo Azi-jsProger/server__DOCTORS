@@ -11,16 +11,19 @@ const port = process.env.PORT || 8888;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Настройка CORS
+// Настройка CORS
 const corsOptions = {
     origin: [
         'http://localhost:3000',
         'https://server-node-gthmlk84y-azi-progerjs-projects.vercel.app',
         'https://server-node-js-nu.vercel.app',
         'https://server-node-js-git-master-azi-progerjs-projects.vercel.app',
+        'https://medix-sable.vercel.app'  // Добавьте ваш фронтенд-URL сюда
     ],
     credentials: true,
     optionsSuccessStatus: 200
 };
+
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
